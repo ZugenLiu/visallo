@@ -32,6 +32,10 @@ define([
             }
         },
 
+        componentDidMount() {
+            this.cyNodeIdsWithPositionChanges = {};
+        },
+
         componentWillReceiveProps(nextProps) {
             if (nextProps.product.id === this.props.product.id) {
                 this.setState({ viewport: {}, generatePreview: false })
@@ -51,8 +55,8 @@ define([
                 events = {
                     onSelect: this.onSelect,
                     onUnselect: this.onUnselect,
-                    onGrab: this.onGrab,
                     onFree: this.onFree,
+                    onLayoutStop: this.onLayoutStop,
                     onPosition: this.onPosition,
                     onTap: this.onTap,
                     onContextTap: this.onContextTap,
@@ -67,9 +71,21 @@ define([
                         generatePreview={generatePreview}
                         config={config}
                         elements={this.mapPropsToElements()}
+                        onCreateVertex={this.onCreateVertex}
                         onUpdatePreview={this.onUpdatePreview}></Cytoscape>
                 </div>
             )
+        },
+
+        onCreateVertex(position) {
+            // TODO: privilieges
+            //if (Privileges.canEDIT) {
+            require(['util/popovers/fileImport/fileImport'], (CreateVertex) => {
+                CreateVertex.attachTo(this.refs.cytoscape.state.cy.container(), {
+                    anchorTo: { page: position }
+                });
+            });
+            //}
         },
 
         onUpdatePreview(data) {
@@ -98,12 +114,9 @@ define([
         onContextTap(event) {
             const { cyTarget, cy, originalEvent } = event;
             // TODO: show all selected objects if not on item
-            console.log(event.type, event.cyTarget)
             if (cyTarget !== cy) {
                 const { pageX, pageY } = originalEvent;
                 this.props.onVertexMenu(originalEvent.target, cyTarget.id(), { x: pageX, y: pageY });
-            } else {
-                this.props.onVertexMenu(originalEvent.target);
             }
         },
 
@@ -115,25 +128,27 @@ define([
             this.coalesceSelection('remove', cyTarget.isNode() ? 'vertices' : 'edges', cyTarget.id());
         },
 
-        onGrab({ cy, cyTarget }) {
-            this.cyNodeIdsWithPositionChanges = {};
+        onLayoutStop() {
+            this.sendPositionUpdates();
         },
 
-        onFree({ cyTarget }) {
-            this.props.onUpdatePositions(
-                this.props.product.id,
-                _.mapObject(this.cyNodeIdsWithPositionChanges, (cyNode, id) => cyNode.position())
-            );
-            this.cyNodeIdsWithPositionChanges = null;
+        onFree() {
+            this.sendPositionUpdates();
+        },
+
+        sendPositionUpdates() {
+            if (!_.isEmpty(this.cyNodeIdsWithPositionChanges)) {
+                this.props.onUpdatePositions(
+                    this.props.product.id,
+                    _.mapObject(this.cyNodeIdsWithPositionChanges, (cyNode, id) => cyNode.position())
+                );
+                this.cyNodeIdsWithPositionChanges = {};
+            }
         },
 
         onPosition({ cyTarget }) {
-            if (this.cyNodeIdsWithPositionChanges) {
-                var id = cyTarget.id();
-                this.cyNodeIdsWithPositionChanges[id] = cyTarget;
-            } else {
-                throw new Error('Position change without grab: ' + cyTarget.id())
-            }
+            var id = cyTarget.id();
+            this.cyNodeIdsWithPositionChanges[id] = cyTarget;
         },
 
         onViewport({ cy }) {

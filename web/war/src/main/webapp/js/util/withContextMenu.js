@@ -84,5 +84,6 @@ define([], function() {
 
             menu.dropdown('toggle');
         };
+
     }
 });

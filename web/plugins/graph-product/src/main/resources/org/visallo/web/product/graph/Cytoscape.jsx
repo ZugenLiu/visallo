@@ -2,13 +2,16 @@ define([
     'react',
     'cytoscape',
     'fast-json-patch',
-    'components/NavigationControls'
+    'components/NavigationControls',
+    './betterGrid',
+    './Menu'
 ], function(
     React,
     cytoscape,
     jsonpatch,
-    NavigationControls) {
-
+    NavigationControls,
+    betterGrid,
+    Menu) {
     const { PropTypes } = React;
     const ANIMATION = { duration: 400, easing: 'spring(250, 20)' };
     const DEFAULT_PNG = Object.freeze({
@@ -17,12 +20,29 @@ define([
         maxWidth: 300,
         maxHeight: 300
     });
+    const LAYOUT_OPTIONS = {
+        // Customize layout options
+        random: { padding: 10 },
+        arbor: { friction: 0.6, repulsion: 5000, targetFps: 60, stiffness: 300 },
+        breadthfirst: {
+            roots: function(nodes, options) {
+                if (options && options.onlySelected) {
+                    return [];
+                }
+                return nodes.roots().map(function(n) { return n.id(); })
+            },
+            directed: false,
+            circle: false,
+            maximalAdjustments: 10
+        }
+    };
     const PREVIEW_DEBOUNCE_SECONDS = 3;
     const EVENTS = {
         drag: 'onDrag',
         free: 'onFree',
         grab: 'onGrab',
         position: 'onPosition',
+        layoutstop: 'onLayoutStop',
         tap: 'onTap',
         cxttap: 'onContextTap',
         pan: 'onPan',
@@ -60,10 +80,17 @@ define([
             }
         },
 
+        getInitialState() {
+            return { showGraphMenu: false, moving: {} };
+        },
+
         componentDidMount() {
             this.updatePreview = _.debounce(this._updatePreview, PREVIEW_DEBOUNCE_SECONDS * 1000)
             this.previousConfig = this.prepareConfig();
             const cy = cytoscape(this.previousConfig);
+
+            cytoscape('layout', 'bettergrid', betterGrid);
+
             this.setState({ cy })
 
             cy.on('add remove select unselect position data', () => this.updatePreview());
@@ -98,13 +125,9 @@ define([
                 this.makeChanges(oldNodes, newNodes)
                 this.makeChanges(oldEdges, newEdges)
             })
-            //if (this.props.generatePreview) {
-                //this._updatePreview();
-            //}
         },
 
         _updatePreview() {
-            console.trace();
             if (this.unmounted) return;
             const { cy } = this.state;
             this.props.onUpdatePreview(cy.png(DEFAULT_PNG));
@@ -122,6 +145,12 @@ define([
                             }
                         });
                     cy.on(eventMap)
+                    cy.on('cxttap', (event) => {
+                        const {cyTarget, cy} = event;
+                        if (cy === cyTarget) {
+                            this.setState({ showGraphMenu: event })
+                        }
+                    })
                     this.props.onReady(event)
                 }
             }
@@ -133,16 +162,30 @@ define([
         },
 
         render() {
+            const { showGraphMenu } = this.state;
+            const menu = showGraphMenu ? (
+                <Menu event={showGraphMenu}
+                    onEvent={this.onMenu}
+                    cy={this.state.cy}/>
+            ) : null;
+
             return (
-                <div style={{height: '100%'}}>
+                <div onMouseDown={this.onMouseDown} style={{height: '100%'}}>
                     <div style={{height: '100%'}} ref="cytoscape"></div>
                     <NavigationControls
                         onFit={this.onControlsFit}
                         onZoom={this.onControlsZoom}
                         onPan={this.onControlsPan} />
+                    {menu}
                 </div>
             )
 
+        },
+
+        onMouseDown(event) {
+            if (this.state.showGraphMenu) {
+                this.setState({ showGraphMenu: false })
+            }
         },
 
         _zoom(factor, dt) {
@@ -156,6 +199,126 @@ define([
                 level: zoom + factor * dt,
                 position: { x: pos[0], y: pos[1] }
             })
+        },
+
+        onMenu(event) {
+            this.setState({ showGraphMenu: false })
+
+            const dataset = event.target.dataset;
+            const zoom2 = parseFloat(dataset.arg, 10);
+            const args = (dataset.args ? JSON.parse(dataset.args) : []).concat([event])
+            this[`onMenu${dataset.func}`](...args);
+        },
+
+        onMenuZoom(level) {
+            const { cy } = this.state;
+            const zoom1 = cy._private.zoom;
+            const zoom2 = level;
+            const pan1 = cy._private.pan;
+            const bb = cy.renderer().containerBB;
+            const pos = { x: bb.width / 2, y: bb.height / 2 }
+            const pan2 = {
+                x: -zoom2 / zoom1 * (pos.x - pan1.x) + pos.x,
+                y: -zoom2 / zoom1 * (pos.y - pan1.y) + pos.y
+            };
+
+            cy.animate({ zoom: zoom2, pan: pan2 }, { ...ANIMATION, queue: false });
+        },
+
+        onMenuCreateVertex(event) {
+            const { pageX, pageY } = event.target;
+            this.props.onCreateVertex({ x: pageX, y: pageY })
+        },
+
+        onMenuSelect(select) {
+            const { cy } = this.state;
+
+            var nodes = cy.nodes();
+            var edges = cy.edges();
+            var selectedVertices = nodes.filter(':selected');
+            var unselectedVertices = nodes.filter(':unselected');
+            var selectedEdges = edges.filter(':selected');
+            var unselectedEdges = edges.filter(':unselected');
+
+            switch (select) {
+                case 'all':
+                    unselectedEdges.select();
+                    unselectedVertices.select();
+                    break;
+                case 'none':
+                    selectedVertices.unselect();
+                    selectedEdges.unselect();
+                    break;
+                case 'invert':
+                    selectedVertices.unselect();
+                    selectedEdges.unselect();
+                    unselectedVertices.select();
+                    unselectedEdges.select();
+                    break;
+                case 'vertices':
+                    selectedEdges.unselect();
+                    unselectedVertices.select();
+                    break;
+                case 'edges':
+                    selectedVertices.unselect();
+                    unselectedEdges.select();
+                    break;
+                default:
+                    //var selector = _.findWhere(
+                        //registry.extensionsForPoint('org.visallo.graph.selection'),
+                        //{ identifier: select }
+                    //);
+                    //if (selector) {
+                        //selector(cy);
+                    //}
+            }
+        },
+
+        onMenuLayout(layout, options) {
+            const { cy } = this.state;
+            const onlySelected = options && options.onlySelected;
+            const elements = onlySelected ? cy.collection(cy.nodes().filter(':selected')) : cy.nodes();
+
+            var opts = {
+                name: layout,
+                fit: false,
+                stop: function() {
+                    const updates = _.map(elements.toArray(), node => ({
+                        vertexId: node.id(),
+                        //graphPosition: retina.pixelsToPoints(vertex.position())
+                        graphPosition: node.position()
+                    }));
+                    console.log(updates);
+                    //var updates = elements.$.map(elements || cy.nodes(), function(vertex) {
+                        //return {
+                            //vertexId: fromCyId(vertex.id()),
+                            //graphPosition: retina.pixelsToPoints(vertex.position())
+                        //};
+                    //});
+                    //console.log(updates)
+                    //self.trigger('updateWorkspace', {
+                        //entityUpdates: updates
+                    //});
+                    //if (!elements) {
+                        //self.fit(cy, null, { animate: true });
+                    //}
+                },
+                ..._.each(LAYOUT_OPTIONS[layout] || {}, function(optionValue, optionName) {
+                    if (_.isFunction(optionValue)) {
+                        LAYOUT_OPTIONS[layout][optionName] = optionValue(elements, options);
+                    }
+                }),
+                ...options
+            };
+
+            if (onlySelected) {
+                elements.layout(opts);
+            } else {
+                cy.layout(opts);
+            }
+
+            const ids = _.map(elements, node => node.id())
+            this.setState({ moving: _.indexBy([Object.keys(this.state.moving), ...ids]) })
         },
 
         onControlsZoom(dir) {
@@ -323,7 +486,7 @@ define([
             })
 
             modify.forEach(({ item, diffs }) => {
-                const topLevelChanges = _.indexBy(diffs, d => d.path.replace(/^\/([^\/]+).*$/, '$1'))
+                const topLevelChanges = _.indexBy(diffs.filter(diff => diff.op !== 'remove'), d => d.path.replace(/^\/([^\/]+).*$/, '$1'))
                 Object.keys(topLevelChanges).forEach(change => {
                     const cyNode = cy.getElementById(item.data.id);
 
@@ -347,18 +510,22 @@ define([
                             break;
 
                         case 'position':
-                            if (this.props.animate) {
-                                this.positionDisabled = true;
-                                cyNode.stop().animate({ position: item.position }, { ...ANIMATION, complete: () => {
-                                    this.positionDisabled = false;
-                                }})
-                            } else {
-                                this.disableEvent('position', () => cyNode.position(item.position))
+                            if (!cyNode.grabbed() && !(cyNode.id() in this.state.moving)) {
+                                if (this.props.animate) {
+                                    this.positionDisabled = true;
+                                    cyNode.stop().animate({ position: item.position }, { ...ANIMATION, complete: () => {
+                                        this.positionDisabled = false;
+                                    }})
+                                } else {
+                                    this.disableEvent('position', () => cyNode.position(item.position))
+                                }
                             }
                             break;
 
                         case 'renderedPosition':
-                            this.disableEvent('position', () => cyNode.renderedPosition(item.renderedPosition))
+                            if (!topLevelChanges.position && change) {
+                                this.disableEvent('position', () => cyNode.renderedPosition(item.renderedPosition))
+                            }
                             break;
 
                         default:
