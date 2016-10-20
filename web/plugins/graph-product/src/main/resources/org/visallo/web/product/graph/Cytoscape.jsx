@@ -81,10 +81,11 @@ define([
         },
 
         getInitialState() {
-            return { showGraphMenu: false, moving: {} };
+            return { showGraphMenu: false };
         },
 
         componentDidMount() {
+            this.moving = {};
             this.updatePreview = _.debounce(this._updatePreview, PREVIEW_DEBOUNCE_SECONDS * 1000)
             this.previousConfig = this.prepareConfig();
             const cy = cytoscape(this.previousConfig);
@@ -172,10 +173,13 @@ define([
             return (
                 <div onMouseDown={this.onMouseDown} style={{height: '100%'}}>
                     <div style={{height: '100%'}} ref="cytoscape"></div>
-                    <NavigationControls
-                        onFit={this.onControlsFit}
-                        onZoom={this.onControlsZoom}
-                        onPan={this.onControlsPan} />
+                    {this.state.cy ? (
+                        <NavigationControls
+                            tools={this.props.tools}
+                            onFit={this.onControlsFit}
+                            onZoom={this.onControlsZoom}
+                            onPan={this.onControlsPan} />
+                    ) : null}
                     {menu}
                 </div>
             )
@@ -207,7 +211,14 @@ define([
             const dataset = event.target.dataset;
             const zoom2 = parseFloat(dataset.arg, 10);
             const args = (dataset.args ? JSON.parse(dataset.args) : []).concat([event])
-            this[`onMenu${dataset.func}`](...args);
+            const fnName = `onMenu${dataset.func}`;
+            if (fnName in this) {
+                this[fnName](...args);
+            } else if (fnName in this.props) {
+                this.props[fnName](...args);
+            } else {
+                console.warn('No handler for menu item', fnName, args)
+            }
         },
 
         onMenuZoom(level) {
@@ -223,11 +234,6 @@ define([
             };
 
             cy.animate({ zoom: zoom2, pan: pan2 }, { ...ANIMATION, queue: false });
-        },
-
-        onMenuCreateVertex(event) {
-            const { pageX, pageY } = event.target;
-            this.props.onCreateVertex({ x: pageX, y: pageY })
         },
 
         onMenuSelect(select) {
@@ -264,13 +270,7 @@ define([
                     unselectedEdges.select();
                     break;
                 default:
-                    //var selector = _.findWhere(
-                        //registry.extensionsForPoint('org.visallo.graph.selection'),
-                        //{ identifier: select }
-                    //);
-                    //if (selector) {
-                        //selector(cy);
-                    //}
+                    this.props.onMenuSelect(select);
             }
         },
 
@@ -282,26 +282,8 @@ define([
             var opts = {
                 name: layout,
                 fit: false,
-                stop: function() {
-                    const updates = _.map(elements.toArray(), node => ({
-                        vertexId: node.id(),
-                        //graphPosition: retina.pixelsToPoints(vertex.position())
-                        graphPosition: node.position()
-                    }));
-                    console.log(updates);
-                    //var updates = elements.$.map(elements || cy.nodes(), function(vertex) {
-                        //return {
-                            //vertexId: fromCyId(vertex.id()),
-                            //graphPosition: retina.pixelsToPoints(vertex.position())
-                        //};
-                    //});
-                    //console.log(updates)
-                    //self.trigger('updateWorkspace', {
-                        //entityUpdates: updates
-                    //});
-                    //if (!elements) {
-                        //self.fit(cy, null, { animate: true });
-                    //}
+                stop: () => {
+                    this.layoutDone = true;
                 },
                 ..._.each(LAYOUT_OPTIONS[layout] || {}, function(optionValue, optionName) {
                     if (_.isFunction(optionValue)) {
@@ -311,14 +293,16 @@ define([
                 ...options
             };
 
+            const ids = _.map(elements, node => node.id())
+            this.layoutDone = false;
+            this.moving = _.indexBy([...Object.keys(this.moving), ...ids]);
+
             if (onlySelected) {
                 elements.layout(opts);
             } else {
                 cy.layout(opts);
             }
 
-            const ids = _.map(elements, node => node.id())
-            this.setState({ moving: _.indexBy([Object.keys(this.state.moving), ...ids]) })
         },
 
         onControlsZoom(dir) {
@@ -510,7 +494,7 @@ define([
                             break;
 
                         case 'position':
-                            if (!cyNode.grabbed() && !(cyNode.id() in this.state.moving)) {
+                            if (!cyNode.grabbed() && !(cyNode.id() in this.moving)) {
                                 if (this.props.animate) {
                                     this.positionDisabled = true;
                                     cyNode.stop().animate({ position: item.position }, { ...ANIMATION, complete: () => {
@@ -519,6 +503,8 @@ define([
                                 } else {
                                     this.disableEvent('position', () => cyNode.position(item.position))
                                 }
+                            } else if (this.layoutDone) {
+                                delete this.moving[cyNode.id()];
                             }
                             break;
 

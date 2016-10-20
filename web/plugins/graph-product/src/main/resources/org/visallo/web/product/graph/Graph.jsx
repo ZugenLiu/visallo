@@ -2,7 +2,8 @@ define([
     'react',
     './Cytoscape',
     'util/vertex/formatters',
-], function(React, Cytoscape, F) {
+    'components/RegistryInjectorHOC'
+], function(React, Cytoscape, F, RegistryInjectorHOC) {
     'use strict';
 
     const PropTypes = React.PropTypes;
@@ -34,6 +35,7 @@ define([
 
         componentDidMount() {
             this.cyNodeIdsWithPositionChanges = {};
+
         },
 
         componentWillReceiveProps(nextProps) {
@@ -62,12 +64,19 @@ define([
                     onContextTap: this.onContextTap,
                     onPan: this.onViewport,
                     onZoom: this.onViewport
-                };
+                },
+                menuHandlers = {
+                    onMenuCreateVertex: this.onMenuCreateVertex,
+                    onMenuSelect: this.onMenuSelect,
+                    onMenuExport: this.onMenuExport
+                }
             return (
                 <div style={{ height: '100%' }}>
                     <Cytoscape
                         ref="cytoscape"
                         {...events}
+                        {...menuHandlers}
+                        tools={this.getTools()}
                         generatePreview={generatePreview}
                         config={config}
                         elements={this.mapPropsToElements()}
@@ -77,7 +86,54 @@ define([
             )
         },
 
-        onCreateVertex(position) {
+        getTools() {
+            return this.props.registry['org.visallo.graph.options'].map(e => ({
+                identifier: e.identifier,
+                optionComponentPath: e.optionComponentPath,
+                getProps: () => ({ cy: this.refs.cytoscape.state.cy })
+            }));
+        },
+
+        onMenuSelect(identifier) {
+            const cy = this.refs.cytoscape.state.cy;
+            const selector = _.findWhere(
+                this.props.registry['org.visallo.graph.selection'],
+                { identifier }
+            );
+            if (selector) {
+                selector(cy);
+            }
+        },
+
+        onMenuExport(componentPath) {
+            var exporter = _.findWhere(
+                    this.props.registry['org.visallo.graph.export'],
+                    { componentPath }
+                );
+
+            if (exporter) {
+                const cy = this.refs.cytoscape.state.cy;
+                const { product } = this.props;
+                Promise.require('util/popovers/exportWorkspace/exportWorkspace').then(ExportWorkspace => {
+                    ExportWorkspace.attachTo(cy.container(), {
+                        exporter: exporter,
+                        workspaceId: product.workspaceId,
+                        productId: product.id,
+                        cy: cy,
+                        anchorTo: {
+                            page: {
+                                x: window.lastMousePositionX,
+                                y: window.lastMousePositionY
+                            }
+                        }
+                    });
+                });
+            }
+        },
+
+        onMenuCreateVertex(event) {
+            const { pageX, pageY } = event.target;
+            const position = { x: pageX, y: pageY };
             // TODO: privilieges
             //if (Privileges.canEDIT) {
             require(['util/popovers/fileImport/fileImport'], (CreateVertex) => {
@@ -489,5 +545,9 @@ define([
         }
     };
 
-    return Graph;
+    return RegistryInjectorHOC(Graph, [
+        'org.visallo.graph.selection',
+        'org.visallo.graph.export',
+        'org.visallo.graph.options'
+    ]);
 });

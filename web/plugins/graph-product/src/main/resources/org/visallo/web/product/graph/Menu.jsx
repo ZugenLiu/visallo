@@ -1,9 +1,15 @@
 define([
     'react',
     'util/withContextMenu',
-    'util/formatters'
-], function(React, withContextMenu, F) {
+    'util/formatters',
+    'cytoscape',
+    'components/RegistryInjectorHOC'
+], function(React, withContextMenu, F, cytoscape, RegistryInjectorHOC) {
     'use strict';
+
+    const EXTENSION_EXPORT = 'org.visallo.graph.export';
+    const EXTENSION_SELECT = 'org.visallo.graph.selection';
+    const EXTENSION_LAYOUT = 'org.visallo.graph.layout';
 
     const PropTypes = React.PropTypes;
     const Menu = React.createClass({
@@ -28,7 +34,9 @@ define([
             this.mixin.toggleMenu({ positionUsingEvent: nextProps.event }, $(this.refs.dropdownMenu));
         },
         render() {
-            const { cy } = this.props;
+            const { cy, registry } = this.props;
+            const hasSelection = cy.nodes().filter(':selected').length > 0;
+
             return (
                 <div ref="menu" onMouseDown={e => e.stopPropagation()}>
                 <ul ref="dropdownMenu" className="dropdown-menu" role="menu">
@@ -46,9 +54,25 @@ define([
                         <li><a onMouseUp={this.props.onEvent} data-func="Select" data-args='["invert"]' tabIndex="-1" href="#">{i18n('graph.contextmenu.select.invert')}</a></li>
                         <li><a onMouseUp={this.props.onEvent} data-func="Select" data-args='["vertices"]' tabIndex="-1" href="#">{i18n('graph.contextmenu.select.vertices')}</a></li>
                         <li><a onMouseUp={this.props.onEvent} data-func="Select" data-args='["edges"]' tabIndex="-1" href="#">{i18n('graph.contextmenu.select.edges')}</a></li>
+                        {registry[EXTENSION_SELECT].length ?
+                            _.compact(registry[EXTENSION_SELECT].map(e => {
+                                if ((hasSelection && _.contains(['always', 'selected'], e.visibility)) ||
+                                    (!hasSelection && _.contains(['always', 'none-selected'], e.visibility))) {
+                                        return (
+                                            <li key={e.identifier} className="plugin">
+                                                <a onMouseUp={this.props.onEvent} href="#" tabIndex="-1" data-func="Select" data-args={JSON.stringify([e.identifier])}>
+                                                    {i18n(`graph.selector.${e.identifier}.displayName`)}
+                                                </a>
+                                            </li>
+                                        );
+                                    }
+                            })) : null
+                        }
+
                     </ul>
                     </li>
 
+                    {/* TODO: disable all layouts if workspace not editable */}
                     <li className="dropdown-submenu layouts">
                     <a onMouseUp={this.props.onEvent} tabIndex="-1" href="#">{i18n('graph.contextmenu.layout')}</a>
                     <ul className="dropdown-menu">
@@ -56,9 +80,12 @@ define([
                         <li><a onMouseUp={this.props.onEvent} data-func="Layout" data-args='["bettergrid", {}]' tabIndex="-1" href="#">{i18n('graph.contextmenu.layout.grid')}</a></li>
                         <li><a onMouseUp={this.props.onEvent} data-func="Layout" data-args='["breadthfirst", {}]' tabIndex="-1" href="#">{i18n('graph.contextmenu.layout.hierarchical')}</a></li>
                         <li><a onMouseUp={this.props.onEvent} data-func="Layout" data-args='["arbor", {}]' tabIndex="-1" href="#">{i18n('graph.contextmenu.layout.force_directed')}</a></li>
+                        {this.renderLayoutExtensions(false)}
                     </ul>
                     </li>
 
+
+                    {hasSelection ? (
                     <li className="dropdown-submenu layouts-multi">
                     <a onMouseUp={this.props.onEvent} tabIndex="-1" href="#">{i18n('graph.contextmenu.layout.selection')}</a>
                     <ul className="dropdown-menu">
@@ -66,8 +93,10 @@ define([
                         <li><a onMouseUp={this.props.onEvent} data-func="Layout" data-args='["bettergrid", {"onlySelected":true}]' tabIndex="-1" href="#">{i18n('graph.contextmenu.layout.grid')}</a></li>
                         <li><a onMouseUp={this.props.onEvent} data-func="Layout" data-args='["breadthfirst", {"onlySelected":true}]' tabIndex="-1" href="#">{i18n('graph.contextmenu.layout.hierarchical')}</a></li>
                         <li><a onMouseUp={this.props.onEvent} data-func="Layout" data-args='["arbor", {"onlySelected":true}]' tabIndex="-1" href="#">{i18n('graph.contextmenu.layout.force_directed')}</a></li>
+                        {this.renderLayoutExtensions(true)}
                     </ul>
                     </li>
+                    ) : null}
 
                     <li className="dropdown-submenu">
                     <a onMouseUp={this.props.onEvent} tabIndex="-1" href="#">{i18n('graph.contextmenu.zoom')}</a>
@@ -78,12 +107,50 @@ define([
                     </ul>
                     </li>
 
+                    {registry[EXTENSION_EXPORT].length ? (<li className="divider" />) : null}
+                    {registry[EXTENSION_EXPORT].length === 1 ? this.renderExportExtensions() : null}
+                    {registry[EXTENSION_EXPORT].length > 1 ? (
+                        <li className="dropdown-submenu">
+                            <a>{i18n('graph.contextmenu.export')}</a>
+                            <ul className="dropdown-menu">{this.renderExportExtensions()}</ul>
+                        </li>
+                    ) : null}
+
                 </ul>
                 </div>
             )
         },
 
+        renderExportExtensions() {
+            return _.sortBy(this.props.registry[EXTENSION_EXPORT], 'menuItem')
+                .map(e => (
+                    <li key={e.componentPath} className="exporter">
+                        <a onMouseUp={this.props.onEvent}
+                           data-func="Export"
+                           data-args={JSON.stringify([e.componentPath])}
+                           href="#">{e.menuItem}</a>
+                    </li>
+                ))
+        },
+
+        renderLayoutExtensions(onlySelected) {
+            const display = e => i18n('graph.layout.' + e.identifier + '.displayName');
+            return _.sortBy(this.props.registry[EXTENSION_LAYOUT], display)
+                .map(e => {
+                    cytoscape('layout', e.identifier, e);
+                    return (
+                        <li key={e.identifier} className="exporter">
+                            <a onMouseUp={this.props.onEvent}
+                               data-func="Layout"
+                               data-args={JSON.stringify([e.identifier, { onlySelected }])}
+                               href="#">{display(e)}</a>
+                        </li>
+                    );
+                });
+        }
+
     });
 
-    return Menu;
+
+    return RegistryInjectorHOC(Menu, [EXTENSION_EXPORT, EXTENSION_SELECT, EXTENSION_LAYOUT]);
 });

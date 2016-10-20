@@ -6,9 +6,28 @@ define([
     'data/web-worker/store/product/actions',
     'data/web-worker/store/product/selectors',
     'components/DroppableHOC',
+    'configuration/plugins/registry',
     './Graph'
-], function(React, redux, ReactDom, selectionActions, productActions, productSelectors, DroppableHOC, Graph) {
+], function(
+    React,
+    redux,
+    ReactDom,
+    selectionActions,
+    productActions,
+    productSelectors,
+    DroppableHOC,
+    registry,
+    Graph) {
     'use strict';
+
+    registry.registerExtension('org.visallo.graph.options', {
+        identifier: 'toggleEdgeLabel',
+        optionComponentPath: 'org/visallo/web/product/graph/options/EdgeLabel'
+    });
+    registry.registerExtension('org.visallo.graph.options', {
+        identifier: 'toggleSnapToGrid',
+        optionComponentPath: 'org/visallo/web/product/graph/options/SnapToGrid'
+    });
 
     const mimeTypes = [VISALLO_MIMETYPES.ELEMENTS];
     const style = { height: '100%' };

@@ -1,6 +1,7 @@
 define([
-    'react'
-], function(React) {
+    'react',
+    './Attacher'
+], function(React, Attacher) {
     'use strict';
 
     const PAN_INACTIVE_AREA = 8;
@@ -20,7 +21,7 @@ define([
         propTypes: {
             zoom: PropTypes.bool,
             pan: PropTypes.bool,
-            tools: PropTypes.bool,
+            tools: PropTypes.array,
             onZoom: PropTypes.func,
             onPan: PropTypes.func,
             onFit: PropTypes.func
@@ -40,18 +41,42 @@ define([
 
         getInitialState() {
             return {
-                panning: false
+                panning: false,
+                optionsOpen: false
+            }
+        },
+
+        componentDidMount() {
+            window.addEventListener('click', this.handleClick, false);
+        },
+
+        componentWillUnmount() {
+            window.removeEventListener('click', this.handleClick);
+        },
+
+        handleClick(event) {
+            if (this.state.optionsOpen && !this.refs.options.contains(event.target)) {
+                this.setState({ optionsOpen: false });
             }
         },
 
         render() {
-            const options = this.props.tools ?
+            const { optionsOpen } = this.state;
+            const options = !_.isEmpty(this.props.tools) ?
                 (
-                    <div className="options">
-                        <button title={i18n('controls.options.toggle')}>Options</button>
-                        <div style="display:none" className="options-container"></div>
+                    <div ref="options" className="options">
+                        <button className={optionsOpen ? 'active' : ' '}
+                            onClick={() => this.setState({ optionsOpen: !optionsOpen})}
+                            title={i18n('controls.options.toggle')}>Options</button>
+                        <div style={{display: (optionsOpen ? 'block' : 'none')}} className="options-container">
+                            <ul>{
+                                this.props.tools.map((tool, i) => {
+                                    return <li key={tool.identifier}><Attacher componentPath={tool.optionComponentPath} {...tool.getProps()} /></li>
+                                })
+                            }</ul>
+                        </div>
                     </div>
-                ) : '',
+                ) : null,
                 panningCls = 'panner' + (this.state.panning ? ' active' : ''),
                 panningStyle = this.state.panning && this.state.pan ? {
                     background: `radial-gradient(circle at ${calculatePosition(this.state.pan)}, #575757, #929292 60%)`

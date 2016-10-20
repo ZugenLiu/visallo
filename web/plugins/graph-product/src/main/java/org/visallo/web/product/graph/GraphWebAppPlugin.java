@@ -17,6 +17,9 @@ public class GraphWebAppPlugin implements WebAppPlugin {
         app.registerJavaScriptComponent("/org/visallo/web/product/graph/Menu.jsx");
         app.registerJavaScriptComponent("/org/visallo/web/product/graph/Cytoscape.jsx");
 
+        app.registerJavaScriptComponent("/org/visallo/web/product/graph/options/EdgeLabel.jsx");
+        app.registerJavaScriptComponent("/org/visallo/web/product/graph/options/SnapToGrid.jsx");
+
         app.registerResourceBundle("/org/visallo/web/product/graph/messages.properties");
     }
 }
