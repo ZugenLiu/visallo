@@ -23,8 +23,9 @@ define([
             this.attacher = attacher()
                 .node(this.refs.node)
                 .path(this.props.componentPath)
-                .params(this.props)
-                .attach({ teardown: true, empty: true })
+                .params(this.props);
+
+            this.attacher.attach({ teardown: true, empty: true })
         },
 
         componentWillUnmount() {

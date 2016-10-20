@@ -36,13 +36,17 @@ define([
 
         (state, props) => {
             var viewport = state.product.viewports[props.product.id] || { zoom: 1, pan: {x: 0, y: 0 }},
-                pixelRatio = state.screen.pixelRatio;
+                pixelRatio = state.screen.pixelRatio,
+                ontology = state.ontology,
+                uiPreferences = state.user.current.uiPreferences;
 
             return {
                 ...props,
                 selection: productSelectors.getSelectedElementsInProduct(state),
                 viewport,
                 pixelRatio,
+                uiPreferences,
+                ontology,
                 elements: productSelectors.getElementsInProduct(state),
                 mimeTypes,
                 style

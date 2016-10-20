@@ -6,6 +6,9 @@ define([
 ], function(React, Cytoscape, F, RegistryInjectorHOC) {
     'use strict';
 
+    // For performace switch to non-bezier edges after this many
+    const MaxEdgesBeforeHayStackOptimization = 250;
+
     const PropTypes = React.PropTypes;
     const noop = function() {};
     const Graph = React.createClass({
@@ -214,7 +217,7 @@ define([
         },
 
         mapPropsToElements() {
-            var { selection, product, elements } = this.props,
+            var { selection, product, elements, ontology } = this.props,
                 elementVertices = elements.vertices,
                 elementEdges = elements.edges,
                 verticesSelectedById = selection.vertices,
@@ -228,11 +231,13 @@ define([
                         position: pos,
                         selected: (id in verticesSelectedById)
                     })),
-                    edges: edges.map(({ edgeId, outVertexId, inVertexId }) => ({
+                    edges: edges.map(({ edgeId, outVertexId, inVertexId, label }) => ({
                         data: {
                             id: edgeId,
                             source: outVertexId,
-                            target: inVertexId
+                            target: inVertexId,
+                            type: label,
+                            label: label in ontology.relationships ? ontology.relationships[label].displayName : label
                         },
                         selected: (edgeId in edgesSelectedById)
                     }))
@@ -301,7 +306,10 @@ define([
     const IMAGE_ASPECT_RATIO = 4 / 3;
     const VIDEO_ASPECT_RATIO = 19 / 9;
     const CONFIGURATION = (props) => {
-        const { pixelRatio } = props;
+        const { pixelRatio, uiPreferences, product } = props;
+        const { edgeLabels } = uiPreferences;
+        const edgesCount = product.extendedData.edges.length;
+
         return {
             minZoom: 1 / 16,
             maxZoom: 6,
@@ -493,9 +501,8 @@ define([
                         'font-size': 11 * pixelRatio,
                         'target-arrow-shape': 'triangle',
                         color: '#aaa',
-                        content: visalloData.currentUser.uiPreferences.edgeLabels !== 'false' ?
-                            'data(label)' : '',
-                        //'curve-style': 'haystack',
+                        content: edgeLabels !== 'false' ? 'data(label)' : '',
+                        'curve-style': edgesCount > MaxEdgesBeforeHayStackOptimization ? 'haystack' : 'bezier',
                         'min-zoomed-font-size': 3,
                         'text-outline-color': 'white',
                         'text-outline-width': 2,
