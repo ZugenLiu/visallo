@@ -11,10 +11,7 @@ define(['../actions'], function(actions) {
             delete: (productId) => ({ productId }),
 
             updatePreview: (productId, dataUrl) => ({ productId, dataUrl }),
-
-            updatePositions: (productId, updateVertices) => ({ productId, updateVertices }),
             updateViewport: (productId, { pan, zoom }) => ({ productId, pan, zoom }),
-            dropElements: (productId, elements, position) => ({ productId, elements, position }),
             removeElements: (productId, elements) => ({ productId, elements })
         }
     })

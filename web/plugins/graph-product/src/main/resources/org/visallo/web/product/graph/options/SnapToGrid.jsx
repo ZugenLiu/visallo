@@ -1,14 +1,16 @@
 define([
     'react',
-    'react-redux'
-], function(React, redux) {
+    'react-redux',
+    '../worker/actions'
+], function(React, redux, graphActions) {
     'use strict';
 
     const preferenceName = 'snapToGrid';
     const SnapToGrid = React.createClass({
         onChange(event) {
             const checked = event.target.checked;
-            this.props.visalloApi.v1.dataRequest('user', 'preference', preferenceName, checked);
+            this.props.onSnapToGrid(checked);
+            //this.props.visalloApi.v1.dataRequest('user', 'preference', preferenceName, checked);
         },
 
         render() {
@@ -26,7 +28,11 @@ define([
         (state, props) => {
             const snapToGrid = state.user.current.uiPreferences.snapToGrid === 'true'
             return { snapToGrid }
-        }
+        },
+
+        (dispatch, props) => ({
+            onSnapToGrid: (snap) => dispatch(graphActions.snapToGrid(snap))
+        })
     )(SnapToGrid);
 });
 

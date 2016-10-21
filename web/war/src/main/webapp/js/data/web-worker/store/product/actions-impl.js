@@ -1,4 +1,6 @@
-define(['../actions', '../../util/ajax',
+define([
+    '../actions',
+    '../../util/ajax',
     '../element/actions-impl',
     '../selection/actions-impl'
 ], function(actions, ajax, elementActions, selectionActions) {
@@ -23,13 +25,14 @@ define(['../actions', '../../util/ajax',
 
             if (request) {
                 request.then(function(product) {
-                        dispatch(api.update(product))
+                    dispatch(api.update(product))
 
-                        const { vertices, edges } = JSON.parse(product.extendedData)
-                        const vertexIds = _.pluck(vertices, 'id');
-                        const edgeIds = _.pluck(edges, 'id');
-                        dispatch(elementActions.get({ vertexIds, edgeIds }));
-                    })
+                    const { vertices, edges } = JSON.parse(product.extendedData)
+                    const vertexIds = _.pluck(vertices, 'id');
+                    const edgeIds = _.pluck(edges, 'id');
+
+                    dispatch(elementActions.get({ vertexIds, edgeIds }));
+                })
             }
         },
 
@@ -56,56 +59,10 @@ define(['../actions', '../../util/ajax',
             ajax('POST', '/product', { productId, preview: dataUrl })
         },
 
-        updatePositions: ({ productId, updateVertices }) => (dispatch, getState) => {
-            var params = { updateVertices };
-            if (!_.isEmpty(updateVertices)) {
-                return ajax('POST', '/product', { productId, params })
-            }
-        },
-
         updateViewport: ({ productId, pan, zoom }) => ({
             type: 'PRODUCT_UPDATE_VIEWPORT',
             payload: { productId, pan, zoom }
         }),
-
-        dropElements: ({ productId, elements, position }) => (dispatch, getState) => {
-            const { vertexIds, edgeIds } = elements;
-            // TODO: get edges from store first
-            var edges = (edgeIds && edgeIds.length) ? (
-                ajax('POST', '/edge/multiple', { edgeIds })
-                    .then(function({ edges }) {
-                        return _.flatten(edges.map(e => [e.inVertexId, e.outVertexId]));
-                    })
-                ) : Promise.resolve([]);
-
-            edges.then(function(edgeVertexIds) {
-                const product = _.findWhere(getState().product.items, { id: productId });
-                const combined = _.without(_.uniq(edgeVertexIds.concat(vertexIds)), ..._.pluck(product.extendedData.vertices, 'id'));
-                if (!combined.length) return;
-                const xInc = 175;
-                const yInc = 75;
-                const maxX = Math.round(Math.sqrt(combined.length)) * xInc;
-
-                var currentPosition;
-                const nextPosition = () => {
-                    if (currentPosition) {
-                        currentPosition.x += xInc;
-                        if ((currentPosition.x - position.x) > maxX) {
-                            currentPosition.x = position.x;
-                            currentPosition.y += yInc;
-                        }
-                    } else {
-                        currentPosition = {...position} || { x: 0, y: 0 };
-                    }
-                    return {...currentPosition}
-                };
-
-                dispatch(api.updatePositions({
-                    productId,
-                    updateVertices: _.object(combined.map(id => [id, nextPosition()]))
-                }))
-            })
-        },
 
         removeElements: ({ productId, elements }) => (dispatch, getState) => {
             var params = { removeVertices: elements },

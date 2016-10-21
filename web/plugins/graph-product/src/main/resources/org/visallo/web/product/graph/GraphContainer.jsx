@@ -7,6 +7,7 @@ define([
     'data/web-worker/store/product/selectors',
     'components/DroppableHOC',
     'configuration/plugins/registry',
+    './worker/actions',
     './Graph'
 ], function(
     React,
@@ -17,16 +18,17 @@ define([
     productSelectors,
     DroppableHOC,
     registry,
+    graphActions,
     Graph) {
     'use strict';
 
     registry.registerExtension('org.visallo.graph.options', {
         identifier: 'toggleEdgeLabel',
-        optionComponentPath: 'org/visallo/web/product/graph/options/EdgeLabel'
+        optionComponentPath: 'org/visallo/web/product/graph/dist/EdgeLabel'
     });
     registry.registerExtension('org.visallo.graph.options', {
         identifier: 'toggleSnapToGrid',
-        optionComponentPath: 'org/visallo/web/product/graph/options/SnapToGrid'
+        optionComponentPath: 'org/visallo/web/product/graph/dist/SnapToGrid'
     });
 
     const mimeTypes = [VISALLO_MIMETYPES.ELEMENTS];
@@ -62,8 +64,7 @@ define([
 
                 onUpdatePreview: (id, dataUrl) => dispatch(productActions.updatePreview(id, dataUrl)),
 
-                // TODO: these should be graphActions
-                onUpdatePositions: (id, positions) => dispatch(productActions.updatePositions(id, positions)),
+                onUpdatePositions: (id, positions) => dispatch(graphActions.updatePositions(id, positions)),
                 onUpdateViewport: (id, { pan, zoom }) => dispatch(productActions.updateViewport(id, { pan, zoom })),
                 onDrop: (event, position) => {
                     const dataStr = event.dataTransfer.getData(VISALLO_MIMETYPES.ELEMENTS);
@@ -72,7 +73,7 @@ define([
                         event.stopPropagation();
 
                         const data = JSON.parse(dataStr);
-                        dispatch(productActions.dropElements(props.product.id, data.elements, position))
+                        dispatch(graphActions.dropElements(props.product.id, data.elements, position))
                     }
                 },
                 onVertexMenu: (element, vertexId, position) => {

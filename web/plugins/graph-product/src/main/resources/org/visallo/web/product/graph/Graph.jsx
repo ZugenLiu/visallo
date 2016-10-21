@@ -2,8 +2,9 @@ define([
     'react',
     './Cytoscape',
     'util/vertex/formatters',
+    'util/retina',
     'components/RegistryInjectorHOC'
-], function(React, Cytoscape, F, RegistryInjectorHOC) {
+], function(React, Cytoscape, F, retina, RegistryInjectorHOC) {
     'use strict';
 
     // For performace switch to non-bezier edges after this many
@@ -199,7 +200,7 @@ define([
             if (!_.isEmpty(this.cyNodeIdsWithPositionChanges)) {
                 this.props.onUpdatePositions(
                     this.props.product.id,
-                    _.mapObject(this.cyNodeIdsWithPositionChanges, (cyNode, id) => cyNode.position())
+                    _.mapObject(this.cyNodeIdsWithPositionChanges, (cyNode, id) => retina.pixelsToPoints(cyNode.position()))
                 );
                 this.cyNodeIdsWithPositionChanges = {};
             }
@@ -228,7 +229,7 @@ define([
                     nodes: vertices.map(({ id, pos }) => ({
                         data: mapVertexToData(id, elementVertices),
                         classes: mapVertexToClasses(id, elementVertices),
-                        position: pos,
+                        position: retina.pointsToPixels(pos),
                         selected: (id in verticesSelectedById)
                     })),
                     edges: edges.map(({ edgeId, outVertexId, inVertexId, label }) => ({
@@ -249,7 +250,7 @@ define([
                         data: mapVertexToData(id, elementVertices),
                         selected: false,
                         classes: '', //mapVertexToClasses(id, elementVertices),
-                        renderedPosition: elements.dragging.position
+                        renderedPosition: retina.pointsToPixels(elements.dragging.position)
                     }
                 }))
             }

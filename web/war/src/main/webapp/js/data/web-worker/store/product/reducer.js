@@ -5,9 +5,6 @@ define(['updeep'], function(updeep) {
         if (!state) return { loading: false, selected: null, types: [], items: [], viewports: {}, error: null };
 
         switch (type) {
-            case 'product_getProduct_dataRequestSuccess': return { ...state, items: updateOrAddItem(state.items, payload.result) }
-
-
             case 'PRODUCT_LIST': return updateList(state, payload)
             case 'PRODUCT_UPDATE_TYPES': return { ...state, types: payload.types }
 

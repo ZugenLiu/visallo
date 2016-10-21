@@ -192,6 +192,34 @@ public class WebApp extends App {
     }
 
     /**
+     * Add a file that is not loaded on page load and is already compiled by some plugin process.
+     *
+     * @param scriptResourceName
+     */
+    public void registerCompiledJavaScript(String scriptResourceName) {
+        registerCompiledJavaScript(scriptResourceName, false, true);
+    }
+
+    /**
+     * Add a file that is already compiled, (don't have closure compile)
+     *
+     * @param scriptResourceName
+     * @param includeInPage
+     * @param hasSourceMap
+     */
+    public void registerCompiledJavaScript(String scriptResourceName, boolean includeInPage, boolean hasSourceMap) {
+        registerJavaScript(new WebApp.JavaScriptResource(scriptResourceName)
+                .includeInPage(includeInPage)
+                .skipCompile(true));
+
+        if (hasSourceMap) {
+            registerJavaScript(new WebApp.JavaScriptResource(scriptResourceName + ".map")
+                    .includeInPage(false)
+                    .skipCompile(true));
+        }
+    }
+
+    /**
      * Register a JSX react component.
      *
      * Converts .jsx files to .js files using babel.
@@ -250,6 +278,22 @@ public class WebApp extends App {
      */
     public void registerWebWorkerJavaScript(String scriptResourceName) {
         registerWebWorkerJavaScript(scriptResourceName, null);
+    }
+
+    public void registerCompiledWebWorkerJavaScript(String scriptResourceName) {
+        register(
+                scriptResourceName,
+                "application/javascript",
+                "jsc",
+                true,
+                null,
+                pluginsJsResourcesWebWorker,
+                true
+        );
+
+        registerJavaScript(new WebApp.JavaScriptResource(scriptResourceName + ".map")
+                .includeInPage(false)
+                .skipCompile(true));
     }
 
     /**

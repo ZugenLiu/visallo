@@ -55,6 +55,7 @@ define([
                         event.stopPropagation();
 
                         const data = JSON.parse(dataStr);
+                        // TODO: mapActions
                         dispatch(productActions.dropElements(props.product.id, data.elements))
                     }
                 },

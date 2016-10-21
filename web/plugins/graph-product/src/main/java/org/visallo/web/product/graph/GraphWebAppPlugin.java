@@ -11,14 +11,28 @@ public class GraphWebAppPlugin implements WebAppPlugin {
     public void init(WebApp app, ServletContext servletContext, Handler authenticationHandler) {
 
         app.registerJavaScript("/org/visallo/web/product/graph/plugin.js");
-        app.registerJavaScript("/org/visallo/web/product/graph/betterGrid.js", false);
-        app.registerJavaScriptComponent("/org/visallo/web/product/graph/GraphContainer.jsx");
-        app.registerJavaScriptComponent("/org/visallo/web/product/graph/Graph.jsx");
-        app.registerJavaScriptComponent("/org/visallo/web/product/graph/Menu.jsx");
-        app.registerJavaScriptComponent("/org/visallo/web/product/graph/Cytoscape.jsx");
 
-        app.registerJavaScriptComponent("/org/visallo/web/product/graph/options/EdgeLabel.jsx");
-        app.registerJavaScriptComponent("/org/visallo/web/product/graph/options/SnapToGrid.jsx");
+        app.registerCompiledJavaScript("/org/visallo/web/product/graph/dist/Graph.js");
+        app.registerCompiledJavaScript("/org/visallo/web/product/graph/dist/EdgeLabel.js");
+        app.registerCompiledJavaScript("/org/visallo/web/product/graph/dist/SnapToGrid.js");
+        app.registerCompiledJavaScript("/org/visallo/web/product/graph/dist/actions-impl.js");
+
+        app.registerCompiledWebWorkerJavaScript("/org/visallo/web/product/graph/dist/plugin-worker.js");
+
+
+//        app.registerJavaScript("/org/visallo/web/product/graph/betterGrid.js", false);
+
+//        app.registerWebWorkerJavaScript("/org/visallo/web/product/graph/worker/plugin.js");
+//        app.registerJavaScript("/org/visallo/web/product/graph/worker/actions.js", false);
+//        app.registerJavaScript("/org/visallo/web/product/graph/worker/actions-impl.js", false);
+//
+//        app.registerJavaScriptComponent("/org/visallo/web/product/graph/GraphContainer.jsx");
+//        app.registerJavaScriptComponent("/org/visallo/web/product/graph/Graph.jsx");
+//        app.registerJavaScriptComponent("/org/visallo/web/product/graph/Menu.jsx");
+//        app.registerJavaScriptComponent("/org/visallo/web/product/graph/Cytoscape.jsx");
+
+//        app.registerJavaScriptComponent("/org/visallo/web/product/graph/options/EdgeLabel.jsx");
+//        app.registerJavaScriptComponent("/org/visallo/web/product/graph/options/SnapToGrid.jsx");
 
         app.registerResourceBundle("/org/visallo/web/product/graph/messages.properties");
     }
